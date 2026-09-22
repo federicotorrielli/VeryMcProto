@@ -28,11 +28,11 @@ repositories {
 dependencies {
     // paperDevBundle 提供 Mojang 官方映射（全 deobfuscated）的 NMS（net.minecraft.*），开发时直接用 Mojang 名访问。
     // MC 26.1 起 dev bundle 改为 <mcVersion>.build.<N>-stable 新命名（旧格式 X-R0.1-SNAPSHOT 止于 1.21.x），
-    // 26.1.2.build.74-stable 为 26.1 线当前最高 stable（repo.papermc.io metadata 实测）。
-    paperweight.paperDevBundle("26.1.2.build.74-stable")
+    // 26.2.build.127-stable 为 26.2 线当前最高 stable（repo.papermc.io metadata 实测，2026-09-22）。
+    paperweight.paperDevBundle("26.2.build.127-stable")
 
     // PacketEvents（EasyPlace 拦截原版 use_item_on）：compileOnly，运行时由服务器独立安装的 packetevents 插件提供。
-    // 锁定 2.13.0（codemc 最新 release；对照源码 OriginImpl/packetevents-2.0 为 2.13.1 开发版，API 一致）。
+    // 锁定 2.13.0（codemc 最新 release，官方 release notes 声明支持 MC 26.2；对照源码 OriginImpl/packetevents-2.0 为 2.13.1 开发版，API 一致）。
     compileOnly("com.github.retrooper:packetevents-spigot:2.13.0")
 
     // 单元测试（JUnit 5 / Jupiter）。test classpath 继承 main 的 paperDevBundle——NMS 类（FriendlyByteBuf 等）
@@ -85,7 +85,7 @@ tasks {
         val jarTask = named<Jar>("jar")
         val jarArchive = jarTask.flatMap { it.archiveFile }
         val expectedVersion = project.version.toString()
-        // api-version 应逐字等于 mcVersion（如 26.1.2；1.20.5 起官方支持三段式，语义 = 低于该值
+        // api-version 应逐字等于 mcVersion（如 26.2 / 26.1.2；1.20.5 起官方支持三段式，语义 = 低于该值
         // 的服务器拒载）。本插件协议面绑死精确补丁（MOD_STRING 硬门禁 + dev bundle），放行旧补丁
         // 只会让握手静默失败；Modrinth 等平台亦按 api-version 标注适用版本——纳入终检构建期拦截。
         val expectedApiVersion = providers.gradleProperty("mcVersion").get()

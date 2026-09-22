@@ -186,7 +186,7 @@ long sprint = Reflect.get(tickManager, "remainingSprintTicks");  // Mojang 名�
 
 ---
 
-## 5. 构建配置（26.1 as-built）
+## 5. 构建配置（26.2 as-built）
 
 > 26.1 起 Mojang 移除服务端混淆：**reobf 废除**（paperweight 官方：reobf 插件无法在 Paper 26.1+ 加载），产物即 Mojang 映射 jar。版本唯一来源 `gradle.properties`（`mcVersion` / `buildNumber`）。
 
@@ -198,7 +198,7 @@ plugins {
 }
 
 dependencies {
-    paperweight.paperDevBundle("26.1.2.build.74-stable")
+    paperweight.paperDevBundle("26.2.build.127-stable")
     // 26.1 起新格式 <mc>.build.<N>-stable；提供 Mojang 全映射 net.minecraft.* + io.papermc.paper.*
     // 可选依赖（EasyPlace）：compileOnly("com.github.retrooper:packetevents-spigot:2.13.0")
 }
@@ -206,7 +206,7 @@ dependencies {
 java { toolchain.languageVersion = JavaLanguageVersion.of(25) }
 
 tasks {
-    runServer { minecraftVersion("26.1.2"); jvmArgs("-Xms2G", "-Xmx2G") }
+    runServer { minecraftVersion("26.2"); jvmArgs("-Xms2G", "-Xmx2G") }   // 实际取 gradle.properties 的 mcVersion
     processResources {
         // expand 占位符必须显式 inputs.property(...) 参与 up-to-date 跟踪（26.1.2-b2 曾实证陈旧展开事故）
         filesMatching("plugin.yml") { expand(props) }
@@ -215,13 +215,13 @@ tasks {
 }
 ```
 
-**plugin.yml**（`api-version` 三段精确式，1.20.5+ 支持补丁段；本插件 MOD_STRING 硬门禁绑死精确补丁）：
+**plugin.yml**（`api-version` 逐字等于 `mcVersion`——26.2 无补丁段，取两段式 `'26.2'`；1.20.5+ 支持补丁段；本插件 MOD_STRING 硬门禁绑死精确上游版本）：
 
 ```yaml
 name: VeryMcProto
 version: '${version}'
 main: verymc.top.veryMcProto.VeryMcProto
-api-version: '26.1.2'
+api-version: '26.2'
 load: POSTWORLD
 ```
 
@@ -235,7 +235,7 @@ load: POSTWORLD
 |---|---|---|
 | 客户端 32767 字节解码上限（未知通道） | S2C 大包断连 | `PacketSplitter` S2C 分片 32000/31995；已知通道大包走 NMS 直发（§2.2） |
 | 客户端未装对应 Mod（如无 MiniHUD） | 发包失败/无响应 | `MAX_FAILURES` 计数 + invalid 玩家标记；`PlayerRegisterChannelEvent` + C2S 主动请求自愈 |
-| `MOD_STRING` 协议握手字段 | 客户端版本协商 | **26.1 真值 `servux-fabric-<mcVersion>-b<buildNumber>`（当前 `servux-fabric-26.1.2-b4`）**——`MOD_TYPE` 恒 `"fabric"` 伪装，26.1 客户端 `startsWith("servux-fabric-<精确上游id>")` 硬门禁，1.21.11 时代的 `"paper"` 前缀会被四通道静默拒绝；协议版本用 26.1 真值 3/2/2/3/2（见 [09](09-DELIVERY.md) §26.1.2） |
+| `MOD_STRING` 协议握手字段 | 客户端版本协商 | **26.1 起真值 `servux-fabric-<mcVersion>-b<buildNumber>`（当前 `servux-fabric-26.2-b1`，26.2 客户端门禁不变）**——`MOD_TYPE` 恒 `"fabric"` 伪装，26.1 客户端 `startsWith("servux-fabric-<精确上游id>")` 硬门禁，1.21.11 时代的 `"paper"` 前缀会被四通道静默拒绝；协议版本用 26.1 真值 3/2/2/3/2（见 [09](09-DELIVERY.md) §26.1.2） |
 | NMS 签名随版本漂移 | 升级 MC 时编译失败 | 反射点集中在 `framework/reflect/`；升级按 [04](04-mixin-analysis.md) 反射点清单 + [../AGENTS.md](../AGENTS.md) §4 NMS 约束核对 |
 | Structures 周期扫描性能 | 玩家多时 CPU 占用 | 限扫描频率（`update_interval` 默认 40t=2s）；只扫 view distance 内；去重缓存 |
 | EasyPlace 依赖 PacketEvents | 未装时功能缺席 | `EasyPlaceBootstrap` 反射加载 + `catch(Throwable)` 优雅跳过，其余通道零影响 |
@@ -390,7 +390,7 @@ Mixin 改行为     → 降级省略 / PacketEvents / 投影代码内联
 | 层 | 保真度 | 说明 |
 |---|---|---|
 | 网络协议字节 | **100%** | 同一 `FriendlyByteBuf`/`CompoundTag`/DataTag 线格式，字节级一致 |
-| 通道/版本号 | **100%** | 通道名、协议版本号与原版逐字对齐（26.1 真值） |
+| 通道/版本号 | **100%** | 通道名、协议版本号与原版逐字对齐（26.1 真值，26.2 不变） |
 | 数据采集 | **≈95%** | 绝大多数 NMS 直连；TPS/MobCap 个别字段反射可能版本敏感 |
 | 服务端行为改造 | **部分降级** | EasyPlace ✅ 已实现（PacketEvents）；UpdateSuppression/Allay 省略；潜影盒堆叠不可能实现（已删代码） |
 

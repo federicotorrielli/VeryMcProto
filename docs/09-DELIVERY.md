@@ -1,6 +1,6 @@
-# 09 · 投递与字节限制 · 与原版差异/降级 · 26.1 迁移实录
+# 09 · 投递与字节限制 · 与原版差异/降级 · 26.1 / 26.2 迁移实录
 
-> 本文是**现行规范**三合一：① 投递路径与字节限制专题（§3 / §7 / §10，含客户端 32767 上限实证）；② 与原版 Servux 的逐通道差异/适配点 + 降级清单 + 防御性要点（§5–§7）；③ **26.1 线迁移实录（§26.1，权威）**——构建面/wire 差异/NMS 漂移实测清单，升级到下一版本时按此方法论重做。
+> 本文是**现行规范**三合一：① 投递路径与字节限制专题（§3 / §7 / §10，含客户端 32767 上限实证）；② 与原版 Servux 的逐通道差异/适配点 + 降级清单 + 防御性要点（§5–§7）；③ **26.1 线迁移实录（§26.1，权威）**——构建面/wire 差异/NMS 漂移实测清单，升级到下一版本时按此方法论重做；**26.2 线迁移实录（§26.2）**——按同一方法论重做，协议面零变化，并纳入 Purpur。
 >
 > 1.21.11 交付期的历史章节（原 §2 移植进度表、§8 验收指南、§9 已知限制、§10.1–10.5/§10.7 调试修复记录）与历史蓝图文档（docs/08、docs/11、docs/research/ 六篇迁移笔记）已于 2026-09 物理删除——**恢复走 git revert**；现行验收流程见 [10](10-testing-guide.md)（Servux）/ [24](24-syncmatica-testing-guide.md)（Syncmatica）/ [30](30-jei-protocol.md)（JEI）。
 >
@@ -70,7 +70,7 @@ verymc.top.veryMcProto/
 
 ## 4. ⚠️ NMS API 坑全集（移植/维护必读）
 
-> 这些是实际编译验证踩过的坑（1.21.11 线成文，26.1 漂移见 §26.1.3——未漂移项结论仍成立），升级 MC 版本时务必重新核对。
+> 这些是实际编译验证踩过的坑（1.21.11 线成文，26.1 漂移见 §26.1.3、26.2 漂移见 §26.2.3——未漂移项结论仍成立），升级 MC 版本时务必重新核对。
 
 | 坑 | 现象 | 正确做法 |
 |---|---|---|
@@ -258,3 +258,61 @@ verymc.top.veryMcProto/
 **有意偏差（相对上游）**：单 placement 字段（上游两调用点恒 singletonList，按"上游零调用点的泛化即裁"先例裁 multimap）；同步 `SchematicPlacement.pasteTo`/`getEnclosingBox`/`Box.toVanilla` 死代码删除（上游 pasteTo 已 @Deprecated "Use Task Scheduler"）。
 
 **验证**：`./gradlew build` 编译门（`getTickTimesNanos`/`getTickCount` NMS 符号实编验证）+ 全量 40/40 单测绿（新增 `TaskSchedulerTest` 7 用例：timer 首启/interval 钳制反射断言/周期复位/完成移除/同 tick 双任务索引回退/未完成保留+clearTasks）。**真实 paste 端到端**（用户侧最终验收）：26.1 litematica 客户端粘贴大投影 → 观察 InfoHud 剩余区块进度帧分 tick 收敛 + 完成帧清除 HUD renderer（同步直放时代的滞留缺陷就此闭合）。
+
+---
+
+## §26.2 线迁移实录（26.1.2 → 26.2，2026-09-22）
+
+> 按 §26.1 方法论重做：构建面、上游协议面全量 diff（`OriginImpl/*-LTS-26.1` ↔ `*-LTS-26.2`、JEI 分支 `26.1` ↔ `26.2`、Fabric API 分支 `26.1.2` ↔ `26.2`）、编译驱动 NMS 漂移、编译器不可见的静默漂移审计、Purpur 纳入与实机验证。结论：**协议面零变化**，改动集中在构建面与 3 类 NMS 改名。
+>
+> **锚点约定**：docs 与 src 注释中的 `*-LTS-26.1 :行号` 锚点保留为 26.1 源码引用——协议相关文件在 26.2 逐字一致，但上游新增 import 的文件（如 servux 三个 DataProvider）在 26.2 行号后移 1 行。
+
+### 26.2.1 构建面
+
+| 项 | 26.1.2 | 26.2 | 备注 |
+|---|---|---|---|
+| mcVersion / buildNumber | 26.1.2 / 4 | **26.2 / 1** | 新 MC 线构建号自 1 起；MOD_STRING = `servux-fabric-26.2-b1` |
+| dev bundle | `26.1.2.build.74-stable` | **`26.2.build.127-stable`** | repo.papermc.io 26.2 线最高 stable（2026-09-22） |
+| api-version | '26.1.2' | **'26.2'** | 26.2 无补丁段；遗漏时 `verifyVersionInjection` 终检构建失败（本次实际拦截一次） |
+| Java | 25 | 25 | Fill v3 `26.2` 版本信息 `java.version.minimum = 25` |
+| paperweight / run-paper / Gradle / foojay | beta.23 / 3.1.0 / 9.7.1 / 1.0.0 | 不变 | 均为 2026-09-22 最新版 |
+| PacketEvents | 2.13.0 | 不变 | 2.13.0 release notes 声明支持 26.2 |
+
+### 26.2.2 上游协议面对照（零变化）
+
+- **servux**（`LTS/26.1` → `LTS/26.2`）：`network/` 零改动——协议版本 3/2/2/3/2、Type 枚举、PacketSplitter 常量、DataTag 载体、MOD_STRING 格式全部不变。其余变化：Mixin 改用 Mojang 名（注入点不变）；3 类 NMS 改名（§26.2.3）；裸 `/servux` 新增 `executes(sendAbout)`（`ServuxCommand:42`，文案 `servux.command.about` = `§dServux: %s§r`）——我方已对齐（`ServuxReference.MSG_ABOUT`）；Schema 表新增 26.3 快照行并把 `SCHEMA_26_2_2_*` 更名为 `SCHEMA_26_2_*`——我方照抄；线程工具与 DataOps 为我方未移植的内部类。
+- **masa 客户端**（malilib / litematica / minihud / tweakeroo）：`network/` 包零改动。MOD_STRING 门禁仍为 `servux.startsWith("servux-fabric-" + MaLiLibReference.MC_VERSION)`（minihud `HudDataManager:595` / `EntityDataManager:431` / `DataStorage:851`、litematica `EntityDataManager:543`、tweakeroo `EntityDataManager:437`），26.2 客户端 `MC_VERSION = "26.2"`，我方 `servux-fabric-26.2-b1` 满足前缀。
+- **syncmatica**：协议源文件逐字一致；仅 Schema 表（我方照抄，见 [22](22-syncmatica-mixin-migration.md) §9）与 Mixin 改名（注入点不变）。
+- **JEI**（mezz 分支 `26.2`，head `cb84475`，JEI 30.35.0）：协议文件（`common/network` / `common/transfer` / `ServerCommandUtil` / `ServerConfig` / Fabric 与 NeoForge `network`）与我方移植基准 `ccc16e8` 逐字一致；分支间差异仅 API `@since` 注解与 GUI。
+- **Fabric API**（`fabric-recipe-api-v1`）：`26.2` 与 `26.1.2` 分支仅差 `IngredientMixin` 删除 `hashCode`，wire 零变化；`PlayerListMixin` 注入点与 `ClientPlayNetworkAddon` 逐字一致（[30](30-jei-protocol.md) §5.2 时序不变量前提不变）。NeoForge `RecipeContentPayload`：`26.1.x` 与 `26.2.x` 分支逐字一致。
+- 客户端上限不变：16MB 分片重组上限、32767 未知通道解码上限。
+
+### 26.2.3 NMS 漂移实测清单（编译驱动：仅 5 处报错、3 类）
+
+- **实体类型常量搬家**：`EntityType.PLAYER` → `EntityTypes.PLAYER`（`net.minecraft.world.entity.EntityTypes`）——Entities / Litematics / Tweaks 三个 provider 的「查他人剥离背包」判定。
+- **tag 改名**：`BlockTags.CONCRETE_POWDER` → `BlockTags.CONCRETE_POWDERS`（tag id `concrete_powders`）——`LitematicaSchematic.isGravityBlock`。
+- **实体创建签名**：`EntityType.create(ValueInput, Level, EntitySpawnReason)` → `create(..., new EntitySpawnRequest(reason, ignoreChecks))`。26.2 的 `create(Level, request)` 在 `ignoreChecks=false` 时查 `canSpawn`（feature flag + 和平难度拒绝敌对生物），26.1.2 只查 feature flag。`EntityUtils.createEntityFromNBTSingle` 取 `(LOAD, true)`，逐字对齐上游 servux 26.2 `EntityUtils:95`——否则和平难度下粘贴投影会丢失敌对生物。
+- 三类改动与上游 `servux-LTS-26.2` 同名文件逐字一致。
+
+### 26.2.4 静默漂移审计（编译器不可见项）
+
+- **反射串**：`ServerTickRateManager.remainingSprintTicks`、`TagValueInput.input`、`TagValueOutput.output`、`Connection.channel`、`PaperCommonConnection.packetListener`——`26.2.build.127` 源码逐一存活。
+- **全量 import diff**：全库 139 个 NMS / CraftBukkit / Paper import 对应的源文件逐一对比 26.1.2 ↔ 26.2（dev bundle 打补丁后源码），协议路径零语义变化。要点：`CraftPlayer.sendPluginMessage` 的 `channels().contains` 门控逐字一致（同通道 C2S 证明兜底的前提不变）；`ServerCommonPacketListenerImpl` 仅 `playerBrand` → `clientBrand` 改名；`ByteBufCodecs.collection` 的 65536 预分配封顶不变（仅新增重载）；`SharedConstants.WORLD_VERSION` 4790 → 4903、网络协议号 775 → 776。
+- **EasyPlace 时序前提**：26.2 重构了 `ItemStack.useOn`（capture 列表拷贝与清空前移到 `finally`），但 `BlockPlaceEvent` 仍在 capture 关闭后、通知循环前触发，通知循环仍现读世界状态——`EasyPlaceFixListener` 的前提成立。`handleUseItemOn`、`ServerboundUseItemOnPacket`、`readBlockHitResult` 逐字一致，hitVec 逐轴校验 `1.0000001` 仍在（`EasyPlaceListener` cursor 改写前提成立）。
+- **Paper API**（`paper-api` sources `26.1.2.build.74` ↔ `26.2.build.127`，逐一对比我方 23 个 API import）：`Messenger` / `PluginMessageListener` 仅去掉 `@Experimental`；`Player.getClientBrandName` 标注 `@Nullable`（JEI neoforge 腿已判 null）。
+- **弃用告警**（`-Xlint:deprecation`）：仅 `RecipeSerializer.streamCodec`（26.1.2 已弃用，Fabric API 26.2 仍在用）与 `Bukkit.broadcast(String, String)`，与 26.1.2 相同。
+
+### 26.2.5 Purpur 纳入支持平台
+
+Purpur 是 Paper 的下游分支：插件加载器、plugin messaging、`PlayerRegisterChannelEvent` / `AsyncPlayerConnectionConfigureEvent` 与 Paper 同源。我方没有 Paper 专属检测（`Reference.PLATFORM = "paper"` 只进启动日志），因此无需代码改动；构建仍只依赖 Paper dev bundle，不引入 `purpur-api`。run-paper 3.1.0 没有 Purpur 下载器（仅 Paper / Folia / Velocity / Waterfall），Purpur 实测手工取 jar（`https://api.purpurmc.org/v2/purpur/26.2/<build>/download`）。
+
+### 26.2.6 实机验证记录（2026-09-22）
+
+- `./gradlew build`：19 测试类 / 113 用例全绿；`verifyVersionInjection` 通过（`VeryMcProto-26.2-b1.jar` 内部版本 26.2-b1）。
+- **起服**：Paper 26.2 build 127 与 Purpur 26.2 build 2633（Java 25，同装 PacketEvents 2.13.0）——插件加载并启用、EasyPlace 挂上 PacketEvents、三模块注册、`框架就绪`，插件侧无 WARN / ERROR；裸 `/servux` 回显 `Servux: servux-fabric-26.2-b1`；停服干净。不装 PacketEvents 时两平台均按设计告警「EasyPlace 不可用」并跳过，其余三模块照常启用。
+- **无头协议客户端**（Python 标准库手写的 26.2 协议客户端：protocol 776、离线登录、brand `fabric`、play 相位声明 servux 五通道 + `syncmatica:main` + `fabric:recipe_sync` + jei S2C 通道，C2S 按 minihud / JEI 客户端格式构造），两平台结果一致：
+  - 五通道 metadata 回包，`servux = servux-fabric-26.2-b1`，`version` 依次 3/2/2/3/2；
+  - HUD spawn（type 3）与 weather（type 5）DataTag 帧可解；开 `hud_data:loggers_enabled` 后收到 type 7 TPS + MobCap 帧（`remainingSprintTicks` 反射与 `NaturalSpawner` 采集路径生效）；
+  - `fabric:recipe_sync`（1585 条配方、108225 字节）先于 `update_recipes` 到达——`RecipeSyncJoinOrderer` 时序整形在 26.2 生效；`jei:cheat_permission` 按权限应答；
+  - syncmatica `register_version` 握手起点下发。
+- **用户侧最终验收**：真实 26.2 Fabric 客户端（minihud / litematica / tweakeroo / syncmatica / JEI）连服冒烟。无头客户端只覆盖握手与只读数据面；粘贴、分享、配方转移、EasyPlace 需真实客户端。

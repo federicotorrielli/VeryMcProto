@@ -323,11 +323,11 @@ ServuxHudHandler.encodeServerData(player, data)                    // :121
 
 1. **通道 = plugin messaging channel**：用通道**网络名**（`servux:hud_metadata` 等）注册 `registerIncomingPluginChannel`（C2S）+ `registerOutgoingPluginChannel`（S2C）。
 2. **收到的 byte[] = FriendlyByteBuf 裸字节**：`new FriendlyByteBuf(Unpooled.wrappedBuffer(bytes))` 即可复用原版 `fromPacket` 逻辑。
-3. **发送**：把 `toPacket(buf)` 写出的字节 `buf.array()`/`ByteBuf.getBytes` 成 `byte[]` → `sendPluginMessage`。**Paper 命门**：`CraftPlayer.sendPluginMessage` 按 `channels().contains(channel)` 门控，玩家声明包被处理前 S2C 静默丢弃（26.1.2 反编译实锤；声明处理晚于客户端首个 C2S）→ `ProtocolChannel.send` 对**已在本通道发过 C2S 的玩家**在 `listening=false` 时走 NMS `connection.send(new ClientboundCustomPayloadPacket(new DiscardedPayload(id, bytes)))` 兜底（字面量 DiscardedPayload，与 Paper 放行路径同构；自定义 Payload record 直发会 CCE 踢人）。
+3. **发送**：把 `toPacket(buf)` 写出的字节 `buf.array()`/`ByteBuf.getBytes` 成 `byte[]` → `sendPluginMessage`。**Paper 命门**：`CraftPlayer.sendPluginMessage` 按 `channels().contains(channel)` 门控，玩家声明包被处理前 S2C 静默丢弃（26.1.2 反编译实锤、26.2 复核不变；声明处理晚于客户端首个 C2S）→ `ProtocolChannel.send` 对**已在本通道发过 C2S 的玩家**在 `listening=false` 时走 NMS `connection.send(new ClientboundCustomPayloadPacket(new DiscardedPayload(id, bytes)))` 兜底（字面量 DiscardedPayload，与 Paper 放行路径同构；自定义 Payload record 直发会 CCE 踢人）。
 4. **分包常量**：S2C 分片从 1MiB 改 ≤32760（若走 plugin messaging）；session key 逻辑照搬。
 5. **Payload record / StreamCodec / toPacket / fromPacket**：几乎照抄（去掉 `@Environment`）。
 6. **C2S 不踢人**：plugin messaging 注册的通道 Paper 内置路由，不会因"未知 payload"踢玩家。
-7. **协议版本号保持一致**（26.1 线 HUD=3 / structures=3 / entities=2 / tweaks=2 / litematics=2）：客户端
+7. **协议版本号保持一致**（26.1 / 26.2 线 HUD=3 / structures=3 / entities=2 / tweaks=2 / litematics=2）：客户端
    收 metadata 按 `!=` 严格校验自行退网；服务端 C2S REGISTER 按 `<` 拒绝旧客户端（版本门禁 + 名册拦截，
    见 §6.2/§7）。
 

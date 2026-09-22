@@ -15,7 +15,7 @@
 
 ---
 
-## 2. Paper / Bukkit 官方文档
+## 2. Paper / Purpur / Bukkit 官方文档
 
 | 资源 | 链接 | 用途 |
 |---|---|---|
@@ -23,6 +23,8 @@
 | **Paper 插件消息通道** | https://docs.papermc.io/paper/dev/plugin-messaging/ | **网络层迁移主参考**（registerIncoming/Outgoing、PluginMessageListener） |
 | PaperWeight 指南 | https://github.com/PaperMC/paperweight | userdev 构建、dev bundle（26.1 起 reobf 废除） |
 | Spigot Javadocs | https://hub.spigotmc.org/javadocs/spigot/ | Bukkit API（事件/权限/Messenger） |
+| Purpur 文档 | https://purpurmc.org/docs/ | Paper 分支服务端（26.2 起纳入支持平台，实测见 [09](09-DELIVERY.md) §26.2） |
+| Purpur 下载 API | https://api.purpurmc.org/v2/purpur | 各 MC 版本构建列表与下载（run-paper 无 Purpur 下载器，实测手工取 jar） |
 
 ---
 
@@ -34,6 +36,8 @@
 | Fabric Loader | https://docs.fabricmc.net/ | Mod 生命周期、`FabricLoader` |
 | Mixin 文档 | https://github.com/SpongePowered/Mixin/wiki | 理解 `@Inject`/`@WrapOperation`/`@Accessor`（[04](04-mixin-analysis.md)） |
 | MixinExtras | https://github.com/LlamaLad7/MixinExtras | `@WrapOperation`/`@Local` 等（Servux 用到） |
+| Fabric API 源码 | https://github.com/FabricMC/fabric（分支 `26.2`） | `fabric:recipe_sync` wire 与进服时序不变量权威（[30](30-jei-protocol.md) §10） |
+| NeoForge 源码 | https://github.com/neoforged/NeoForge（分支 `26.2.x`） | `neoforge:recipe_content` wire 权威（`RecipeContentPayload`，[30](30-jei-protocol.md) §5.3） |
 
 ---
 
@@ -61,14 +65,14 @@
 
 | 资源 | 路径 | 用途 |
 |---|---|---|
-| **Servux 原版（26.1 线对照权威）** | [`../OriginImpl/servux-LTS-26.1/`](../OriginImpl/servux-LTS-26.1/) | 逐行对照（协议常量 / Handler 分发权威）；ver/1.21.11 维护线对照 `servux-LTS-1.21.11/` |
+| **Servux 原版（26.2 线对照权威）** | [`../OriginImpl/servux-LTS-26.2/`](../OriginImpl/servux-LTS-26.2/) | 逐行对照（协议常量 / Handler 分发权威）；`servux-LTS-26.1/` 保留——docs/src 的 `*-LTS-26.1 :行号` 锚点指向它（协议代码与 26.2 逐字一致，见 [09](09-DELIVERY.md) §26.2）；ver/1.21.11 维护线对照 `servux-LTS-1.21.11/` |
 | — 网络层 | `.../network/`、`.../network/packet/` | [02](02-network-protocol.md) |
 | — 数据采集 | `.../dataproviders/`、`.../loggers/` | [03](03-dataproviders-detail.md) |
 | — Mixin | `.../mixin/`、`mixins.servux.json`、`servux.accesswidener` | [04](04-mixin-analysis.md) |
 | — 投影系统 | `.../schematic/` | [05](05-schematic-system.md) |
-| **Syncmatica 原版（26.1 线对照权威）** | [`../OriginImpl/syncmatica-LTS-26.1/`](../OriginImpl/syncmatica-LTS-26.1/) | [20](20-syncmatica-architecture.md)–[24](24-syncmatica-testing-guide.md) |
-| **JEI 原版（26.1 线对照权威）** | `../OriginImpl/JustEnoughItems-26.1/`（mezz，分支 `26.1`） | [30](30-jei-protocol.md)；clone 命令与协议权威文件清单见 [../AGENTS.md](../AGENTS.md) §参考源码 |
-| masa 客户端（litematica/malilib/minihud/tweakeroo） | `../OriginImpl/*-LTS-26.1/` | **协议接收端与硬门禁所在**，字段语义必查 |
+| **Syncmatica 原版（26.2 线对照权威）** | [`../OriginImpl/syncmatica-LTS-26.2/`](../OriginImpl/syncmatica-LTS-26.2/) | [20](20-syncmatica-architecture.md)–[24](24-syncmatica-testing-guide.md)；`syncmatica-LTS-26.1/` 保留作锚点来源 |
+| **JEI 原版（26.2 线对照权威）** | `../OriginImpl/JustEnoughItems-26.2/`（mezz，分支 `26.2`；`JustEnoughItems-26.1/` 保留作锚点来源） | [30](30-jei-protocol.md)；clone 命令与协议权威文件清单见 [../AGENTS.md](../AGENTS.md) §参考源码 |
+| masa 客户端（litematica/malilib/minihud/tweakeroo） | `../OriginImpl/*-LTS-26.2/`（`*-LTS-26.1/` 保留作锚点来源） | **协议接收端与硬门禁所在**，字段语义必查 |
 | **姊妹项目 VeryMcBot（paperweight+NMS 范式参考）** | `I:\Programming\VeryMcBot` | `build.gradle.kts`（userdev）、`reflect/Reflect`（反射工具）、其自身 CLAUDE.md（文档风格） |
 | 本项目权威说明 | [`../AGENTS.md`](../AGENTS.md) | 架构、分支/版本模型、核心设计约束、工作约定 |
 
@@ -98,3 +102,4 @@
 | Fabric 用法在 Paper 怎么写 | [07-migration-architecture.md](07-migration-architecture.md) §7 逐域对照 |
 | 命令 / 权限 / 配置 / 排错 | [40-configuration.md](40-configuration.md) |
 | 26.1 迁移实录 | [09-DELIVERY.md](09-DELIVERY.md) §26.1 |
+| 26.2 迁移实录（含 Purpur） | [09-DELIVERY.md](09-DELIVERY.md) §26.2 |

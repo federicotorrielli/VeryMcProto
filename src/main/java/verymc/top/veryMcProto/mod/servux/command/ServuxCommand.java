@@ -15,6 +15,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
 import verymc.top.veryMcProto.framework.dataproviders.DataProviderManager;
 import verymc.top.veryMcProto.mod.servux.ServuxDebug;
+import verymc.top.veryMcProto.mod.servux.ServuxReference;
 import verymc.top.veryMcProto.framework.settings.IServuxSetting;
 import verymc.top.veryMcProto.mod.servux.dataproviders.ConfigProvider;
 import verymc.top.veryMcProto.mod.servux.dataproviders.LitematicsDataProvider;
@@ -22,7 +23,8 @@ import verymc.top.veryMcProto.mod.servux.dataproviders.LitematicsDataProvider;
 /**
  * /servux 命令（mod 层）。移植自原版 {@code ServuxCommand}（Brigadier）→ Bukkit {@link CommandExecutor}/{@link TabCompleter}。
  *
- * <p>子命令：reload / save / set / info / list / enable / disable / search / debug / litematic。
+ * <p>子命令：reload / save / set / info / list / enable / disable / search / debug / litematic；
+ * 无子命令时回显 {@link ServuxReference#MSG_ABOUT}（上游 26.2 sendAbout）。
  * 权限树对齐上游 ServuxCommand:41-90：根节点 {@code servux.commands}（上游根 requires level 4 的
  * Bukkit 近似，default: op）+ 每子命令独立节点 {@code servux.commands.<sub>}（search 复用 .list，
  * 上游 :90）；旧单节点 {@code servux.command} 经 plugin.yml children 映射自动继承新树（兼容既有授权）。
@@ -58,7 +60,8 @@ public class ServuxCommand implements CommandExecutor, TabCompleter
         }
         if (args.length == 0)
         {
-            sender.sendMessage(USAGE);
+            // 对齐上游 26.2 ServuxCommand:42 executes(sendAbout)：裸 /servux 回显握手字段
+            sender.sendMessage(ServuxReference.MSG_ABOUT.formatted(ServuxReference.MOD_STRING));
             return true;
         }
 

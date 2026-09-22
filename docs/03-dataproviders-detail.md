@@ -42,9 +42,9 @@
 CompoundTag metadata:
   name           = "hud_data"            (provider 名)
   id             = "servux:hud_metadata" (通道网络名)
-  version        = 3                     (协议版本，26.1 真值)
-  servux         = "servux-fabric-26.1.2-b<N>"  (MOD_STRING——MOD_TYPE 恒 "fabric" 伪装，
-                                                26.1 客户端 startsWith 硬门禁，"paper" 会被拒)
+  version        = 3                     (协议版本，26.1 真值，26.2 不变)
+  servux         = "servux-fabric-26.2-b<N>"  (MOD_STRING——MOD_TYPE 恒 "fabric" 伪装，
+                                              26.1 起客户端 startsWith 硬门禁，"paper" 会被拒)
   spawnDimension = "minecraft:overworld" (出生点维度 ResourceLocation)
   spawnPosX/Y/Z  = <int>                 (出生点坐标)
   [worldSeed]    = <long>                (仅 share_seed 且玩家有 seed 权限时)
@@ -206,7 +206,7 @@ CompoundTag nbt = view.readNbt();
 nbt.putString("id", EntityType.getKey(entity.getType()).toString());
 
 // 玩家权限过滤（:191-203）—— 仅查【他人】时剥离（查询者查自己保留完整背包，上游 :251 同构）
-if (entity.getType() == EntityType.PLAYER && !entity.getUUID().equals(player.getUUID())) {
+if (entity.getType() == EntityTypes.PLAYER && !entity.getUUID().equals(player.getUUID())) {   // 26.2 起常量移至 EntityTypes
     if (!hasPlayerInventoryPermission(player)) { nbt.remove("Inventory"); nbt.put("Inventory", new ListTag()); }
     // 末影箱同理
 }

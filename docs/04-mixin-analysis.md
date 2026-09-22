@@ -3,6 +3,7 @@
 > Servux 共 **25 个 Mixin**（`mixins.servux.json` 注册，实际类 26 个含 IMixin 双件）+ **2 个 AccessWidener 字段**（`servux.accesswidener`）。
 > **Paper 无 Mixin 运行时，全部不能照抄**。本文逐项给出：目标、注入手法、归属功能、迁移分类、Paper 去向。
 > 配套：数据采集细节见 [03](03-dataproviders-detail.md)；降级方案见 [07](07-migration-architecture.md) §降级矩阵。
+> **26.2 复核**：上游 `servux-LTS-26.2` 的 Mixin 改用 Mojang 名、注入点不变（如 `MixinServerWorld`→`MixinServerLevel`、`MixinPlayerManager`→`MixinPlayerList`、`MixinServerChunkLoadingManager`→`MixinChunkMap`；空壳 `MixinItemStack` 删除），下文沿用旧名。我方反射串（`remainingSprintTicks` / `TagValueInput.input` / `TagValueOutput.output`，另 jei 的 `Connection.channel` / `PaperCommonConnection.packetListener`）经 26.2 dev bundle 源码逐一核对存活（见 [09](09-DELIVERY.md) §26.2）。
 
 ---
 

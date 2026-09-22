@@ -1,8 +1,8 @@
 # 30 · JEI 完整协议（Paper 服务端实现）
 
-> **上游权威**：mezz/JustEnoughItems 分支 `26.1`（JEI 29.37.0 / MC 26.1.2 / Java 25，本地对照 `OriginImpl/JustEnoughItems-26.1/`，commit `ccc16e8`）。2026-09 起正式更换上游（原 Mrbysco/JEIRecipeBridge 已停更且只做过 1.21.11 的配方同步切面）；**此后 JEI 侧更新一律以最上游为准**。1.21.11 旧线（ver/1.21.11*）仍用原 JEI Recipe Bridge 实现——jei 模块跨线 cherry-pick 禁止，一律手工重写。
+> **上游权威**：mezz/JustEnoughItems 分支 `26.2`（JEI 30.35.0 / MC 26.2 / Java 25，本地对照 `OriginImpl/JustEnoughItems-26.2/`，commit `cb84475`）。本模块移植于 26.1 线基准 `ccc16e8`（JEI 29.37.0）；该基准与 26.2 分支头的协议文件（§10 所列 network / transfer / `ServerCommandUtil` / `ServerConfig`）逐字一致，故 26.2 升级零协议改动（见 [09](09-DELIVERY.md) §26.2）。2026-09 起正式更换上游（原 Mrbysco/JEIRecipeBridge 已停更且只做过 1.21.11 的配方同步切面）；**此后 JEI 侧更新一律以最上游为准**。1.21.11 旧线（ver/1.21.11*）仍用原 JEI Recipe Bridge 实现——jei 模块跨线 cherry-pick 禁止，一律手工重写。
 >
-> 配方同步层的 wire 真权威是 **Fabric API** `fabric-recipe-api-v1`（github FabricMC/fabric 分支 26.1）；NeoForge 层是 NeoForge 加载器（wire 参考 `OriginImpl/JEIRecipeBridge-26.1/`）。
+> 配方同步层的 wire 真权威是 **Fabric API** `fabric-recipe-api-v1`（github FabricMC/fabric 分支 26.2，与 26.1.2 分支 wire 零差异）；NeoForge 层是 NeoForge 加载器 `RecipeContentPayload`（neoforged/NeoForge 分支 26.2.x，与 26.1.x 逐字一致；早期 wire 参考 `OriginImpl/JEIRecipeBridge-26.1/`）。
 
 ## 0. 协议全景（三层）
 
@@ -125,7 +125,7 @@ recipes:    VarInt(count) + RecipeHolder.STREAM_CODEC 列表
 - **32767** = 客户端对**未知通道** custom payload 的 discarded 解码上限（超过断连）——对发给 vanilla/未装 mod 客户端的任意通道成立，servux 的 PacketSplitter 32000 分片防的就是它。
 - **已知通道不受此限**：Fabric API 把 `fabric:recipe_sync` 注册为 64MB large payload（客户端 codec + mixin 提限）。我方单包直发给 Fabric API 客户端安全（26.1.2 实机验证，配方表全量 >1MiB 场景）。
 - jei:* S2C 恒小包（几十字节）；C2S 每帧 ≤32767 字节（vanilla 未知通道 `DiscardedPayload` 解码上限，超限在 netty 解码期拒绝、到不了插件代码）。
-- **包长只限字节流，不限列表声明容量**（2026-09 修复记录：修复前转移包列表解码把声明 count 直达 `ArrayList` 构造容量——5 字节 VarInt 可声明 2^31，GB 级预分配的 `OutOfMemoryError` 是 Error，穿透全部 catch(Exception)，可达主线程）。现行防护：列表预分配容量按 vanilla 26.1.2 `ByteBufCodecs.collection(...)` decode 同源的 `Math.min(count, 65536)` 封顶（`AbstractRecipeTransferPacket.MAX_INITIAL_LIST_CAPACITY`）——超大声明在元素循环内字节耗尽 fail-fast、负数由 ArrayList 构造器抛 IAE，均被 `JeiServerPlayHandler` 逐包 catch(Exception) 记日志丢弃、连接保持（`RecipeTransferListBoundTest` 回归覆盖）。**已声明的平台级对照差异（2026-09 升格）**：上游畸形 C2S 在 Fabric API/vanilla 协议层解码（STREAM_CODEC 于 netty 层执行），异常即断连；我方 C2S 经 plugin messaging 裸字节进入、解码发生在 handler 内，逐包 catch 记日志丢弃、连接保持——属 plugin messaging 路径的结构性设计（排错靠 `[JEI] C2S 处理失败` 日志而非客户端断连），非疏漏。
+- **包长只限字节流，不限列表声明容量**（2026-09 修复记录：修复前转移包列表解码把声明 count 直达 `ArrayList` 构造容量——5 字节 VarInt 可声明 2^31，GB 级预分配的 `OutOfMemoryError` 是 Error，穿透全部 catch(Exception)，可达主线程）。现行防护：列表预分配容量按 vanilla 26.1.2 / 26.2 `ByteBufCodecs.collection(...)` decode 同源的 `Math.min(count, 65536)` 封顶（`AbstractRecipeTransferPacket.MAX_INITIAL_LIST_CAPACITY`）——超大声明在元素循环内字节耗尽 fail-fast、负数由 ArrayList 构造器抛 IAE，均被 `JeiServerPlayHandler` 逐包 catch(Exception) 记日志丢弃、连接保持（`RecipeTransferListBoundTest` 回归覆盖）。**已声明的平台级对照差异（2026-09 升格）**：上游畸形 C2S 在 Fabric API/vanilla 协议层解码（STREAM_CODEC 于 netty 层执行），异常即断连；我方 C2S 经 plugin messaging 裸字节进入、解码发生在 handler 内，逐包 catch 记日志丢弃、连接保持——属 plugin messaging 路径的结构性设计（排错靠 `[JEI] C2S 处理失败` 日志而非客户端断连），非疏漏。
 
 ## 7. 模块结构（`mod/jei/`，自管形态——黄金模板 syncmatica）
 
@@ -168,7 +168,7 @@ command/JeiCommand     /jei status|enable|disable
 5. NeoForge 客户端（若有）→ 配方 + tag 同步；
 6. `/jei disable` → 新进服玩家不同步、在线玩家 C2S 被静默丢弃、**无人被踢**。
 
-## 10. 上游源码索引（OriginImpl/JustEnoughItems-26.1/）
+## 10. 上游源码索引（OriginImpl/JustEnoughItems-26.2/）
 
 | 我方实现 | 上游权威文件 |
 |---|---|
@@ -178,5 +178,5 @@ command/JeiCommand     /jei status|enable|disable
 | cheat/Cheats | `Common/.../common/util/ServerCommandUtil.java` |
 | 权限三切面默认值 | `Fabric/.../fabric/config/ServerConfig.java` |
 | 客户端门禁 | `Fabric/.../fabric/network/ConnectionToServer.java`（isJeiOnServer/isSameModLoader）+ `Library/.../library/startup/JeiStarter.java`（verifyClientRecipes） |
-| fabric:recipe_sync wire | FabricMC/fabric 分支 26.1 `fabric-recipe-api-v1/.../impl/recipe/sync/*`（ClientboundRecipeSyncPayload / RecipeSyncImpl） |
-| 进服时序不变量 | FabricMC/fabric 分支 26.1 `fabric-lifecycle-events-v1/.../mixin/event/lifecycle/PlayerListMixin.java`（`@At("NEW", target=...UpdateRecipesPacket)`）+ `fabric-networking-api-v1/.../client/ClientPlayNetworkAddon.java`（onServerReady 注释：收到 LoginPacket 前不可能发包） |
+| fabric:recipe_sync wire | FabricMC/fabric 分支 26.2 `fabric-recipe-api-v1/.../impl/recipe/sync/*`（ClientboundRecipeSyncPayload / RecipeSyncImpl） |
+| 进服时序不变量 | FabricMC/fabric 分支 26.2 `fabric-lifecycle-events-v1/.../mixin/event/lifecycle/PlayerListMixin.java`（`@At("NEW", target=...UpdateRecipesPacket)`）+ `fabric-networking-api-v1/.../client/ClientPlayNetworkAddon.java`（onServerReady 注释：收到 LoginPacket 前不可能发包） |

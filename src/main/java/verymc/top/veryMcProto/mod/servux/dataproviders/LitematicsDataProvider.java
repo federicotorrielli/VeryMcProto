@@ -12,6 +12,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -280,7 +281,7 @@ public class LitematicsDataProvider extends DataProviderBase
                 Identifier id = EntityType.getKey(entity.getType());
 
                 // 对齐上游 :522：查询者查自己时保留背包/末影箱（!uuid.equals 才进入剥离判断）
-                if (entity.getType() == EntityType.PLAYER && !entity.getUUID().equals(player.getUUID()))
+                if (entity.getType() == EntityTypes.PLAYER && !entity.getUUID().equals(player.getUUID()))
                 {
                     // 复用 Entities Provider 的玩家背包/末影箱权限过滤
                     if (!EntitiesDataProvider.INSTANCE.hasPlayerInventoryPermission(player)) { nbt.remove("Inventory"); nbt.put("Inventory", new ListTag()); }

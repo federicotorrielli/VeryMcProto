@@ -16,7 +16,7 @@
 **权限**：根节点 `servux.commands`（default: op）+ 每子命令 `servux.commands.<sub>`；扩展子命令（enable/disable/debug/litematic）有独立节点；旧单节点 `servux.command` 经 plugin.yml children 映射自动继承整棵新树（旧授权不受影响）。
 
 ```
-/servux                                          显示用法
+/servux                                          回显握手字段 `Servux: servux-fabric-<版本>`（对齐上游 26.2 sendAbout；未知子命令仍显示用法）
 /servux list [provider]                          列出全部 settings 现值（上游 configList 形态；值短于 10 字符行内显示）；可选 provider 过滤
 /servux info <provider:setting|setting>          查看某 setting 现值 + 默认值
 /servux set <provider:setting|setting> <value>   修改 setting（纯内存——持久化需 /servux save，上游语义）
