@@ -16,12 +16,13 @@ schematic/
 ├── conversion/SchematicConversionMaps.java  老版本数据转换
 ├── container/                        ★ 纯算法压缩：BitArray + Palette + Container
 ├── placement/                        SchematicPlacement / SubRegionPlacement（旋转/镜像/定位 + 粘贴）
-├── selection/                        Box / AreaSelection（几何）
-└── transmit/                         ★ 纯 Java 分片：SchematicBuffer / SchematicBufferManager
+└── selection/                        Box / AreaSelection（几何）
 ```
 
+> 原 `transmit/`（`SchematicBuffer` / `SchematicBufferManager`）已于 2026-09-22 随 C2S 文件上传路径删除（路径穿越，见 §3）。
+
 **两个核心好消息**：
-1. `container/`（压缩算法）+ `transmit/`（分片）+ `selection/`（几何）**几乎全是纯 Java**，可近乎照抄。
+1. `container/`（压缩算法）+ `selection/`（几何）**几乎全是纯 Java**，可近乎照抄。
 2. 唯一 NMS 依赖在"方块状态 ↔ NBT"的 palette 解析（需 `RegistryAccess`）和"粘贴时写世界"。
 
 ---
@@ -95,8 +96,10 @@ public BlockState get(int x, int y, int z) {
 ## 2. 传输系统：两级分包
 
 > **这是移植最容易踩坑的部分**：Servux 对大投影文件用了**两级**分包。
+>
+> ⛔ **我方现状（2026-09-22 起）**：第一级（`SchematicBuffer`）随 C2S 文件上传路径删除（见 §3），§2.1 / §2.3 仅作上游协议记录；`LitematicaPaste` 粘贴大包仍走第二级 PacketSplitter 重组。
 
-### 2.1 第一级：`SchematicBuffer`（应用层，16KiB/片）
+### 2.1 第一级：`SchematicBuffer`（应用层，16KiB/片；上游，我方已删除）
 
 > `transmit/SchematicBuffer.java`（154 行）+ `SchematicBufferManager.java`（143 行）。**纯 Java**（`byte[]` + `AtomicInteger` + `ConcurrentHashMap`）。
 
@@ -133,15 +136,15 @@ Litematic 文件 (5 MiB)
 
 > **Paper 迁移**：两级分包**全可照抄**（纯 Java）。唯一改动：第二级的 PacketSplitter 分片常量防御客户端 32767 解码上限（见 [02](02-network-protocol.md) §5.2 / [07](07-migration-architecture.md) §2.2）。
 >
-> **方向注记（2026-09 后）**：上图为上游四阶段协议的两级分包形态。26.1 线我方 **S2C 发送侧死信链已删**（客户端无接收端，见 §3）；16KiB 切片（`SchematicBuffer.BUFFER_SIZE`）现为对端 C2S 上传约定，我方接收侧仅重组、不切片。
+> **方向注记（2026-09 后）**：上图为上游四阶段协议的两级分包形态。我方两个方向均已删除：S2C 发送侧死信链 2026-09 删除（客户端无接收端），C2S 接收侧 2026-09-22 删除（路径穿越，见 §3）。
 
 ---
 
 ## 3. 传输协议：四阶段帧（C2S 上传侧）
 
-> 26.1 线现状：**S2C 发送侧（`sendTransmitFile` + `/servux litematic transmit`）死信链已删（2026-09）**——stock 26.1 客户端 `ServuxLitematicaHandler.handleBulkData` 的 Transmit 分流整块注释（一切帧坠入仅认 `BulkEntityReply` 的 `handleBulkEntityData`，静默丢弃无日志），上游服务端同方法 `@Deprecated(forRemoval=true)` 零调用点，且注释块引用 DataTag 迁移前变量名（取消注释无法编译）——服务端无法单方面修复，物理删除死链、恢复走 git revert。**C2S 上传侧为我方激活的协议面超集**（上游 `handleBulkData` 同为注释死路；客户端 `sliceForServux` 调用点也被上游注释，对 stock 客户端不可达），路由完整保留（`LitematicsDataProvider:479-484` 活/死错位声明）。
+> 26.1 线现状：**S2C 发送侧（`sendTransmitFile` + `/servux litematic transmit`）死信链已删（2026-09）**——stock 26.1 客户端 `ServuxLitematicaHandler.handleBulkData` 的 Transmit 分流整块注释（一切帧坠入仅认 `BulkEntityReply` 的 `handleBulkEntityData`，静默丢弃无日志），上游服务端同方法 `@Deprecated(forRemoval=true)` 零调用点，且注释块引用 DataTag 迁移前变量名（取消注释无法编译）——服务端无法单方面修复，物理删除死链、恢复走 git revert。**C2S 上传侧已删除（2026-09-22，禁止恢复）**：旧接收路由用客户端提供的 `FileName` 直接拼落盘路径（`SchematicBuffer.getFileName()` 返回 `Path.of(name)`，`writeFile` 做 `dir.resolve(...)`，无规范化、无目录校验），`../` 可写出 `schematics/` 之外的任意文件；写入前只有「provider 启用 + 已注册」两道门，任何客户端都能满足。后果是服务端任意文件写入，例如在 `plugins/` 放 jar 于下次启动执行——即上游 Servux GHSA-4x67-52jx-vr7m（2026-07-07，critical）。上游修复为随机 UUID 文件名并停用接收：LTS/26.2 `handleBulkData` 不再分流 Transmit*（原 switch 整段注释），stock 客户端 `sliceForServux` 调用点亦注释。我方对齐上游：`handleBulkData` 一律交给 `handleClientPasteRequest`（只受理 `LitematicaPaste`），`receiveFileTransmit` / `SchematicBuffer` / `SchematicBufferManager` / `handleClientPasteRequestPair` 物理删除。
 
-### 3.1 四阶段帧定义（两侧共用，保留于 `ServuxLitematicaPacket`）
+### 3.1 四阶段帧定义（上游协议记录；我方两侧均不再处理）
 
 ```
 阶段1  TransmitStart:
@@ -155,9 +158,9 @@ Litematic 文件 (5 MiB)
 
 （历史注记：S2C 发送方向曾按此帧表由命令触发 `sendTransmitFile` 16KiB 切片投递并经 `PacketSplitter` 二级分包，2026-09 随 26.1 客户端接收端死路确认后物理删除。）
 
-### 3.2 客户端→服务端上传（我方激活的超集路由）
+### 3.2 客户端→服务端上传（已删除）
 
-我方 `ServuxLitematicaHandler.handleBulkData` 按 NBT `"Task"` 字符串路由：`Litematic-Transmit*` → `LitematicaSchematic.receiveFileTransmit` → `SchematicBufferManager.createBuffer` / `receiveSlice` / `finishBuffer` 重组落盘 `schematics/`；粘贴受理 `LitematicsDataProvider.handleClientPasteRequestPair`。**活主路**为 `LitematicaPaste` 批量路由 → `handleClientPasteRequest` → `PasteTask` 分 tick 粘贴（见 [09](09-DELIVERY.md) §5.5）。
+我方 `ServuxLitematicaHandler.handleBulkData` 把重组体一律交给 `LitematicsDataProvider.handleClientPasteRequest`：`Task=LitematicaPaste` 受理为 `PasteTask` 分 tick 粘贴（见 [09](09-DELIVERY.md) §5.5）；其余 Task（含 `Litematic-Transmit*`）在权限与创造门之后被忽略，只留 debug 日志，不落盘。
 
 ### 3.3 序列化字节流（26.1 线格式）
 
@@ -166,7 +169,7 @@ Litematic 文件 (5 MiB)
 ```java
 // 我方 ServuxLitematicaHandler（C2S 重组入口，与 malilib DataTagIo 逐字节兼容）
 CompoundTag nbt = DataTagIo.readTag(fullPacket);   // [int32 大端 压缩长][GZIP(具名根 NBT 流)]
-// 按 nbt.getStringOr("Task", ...) 路由（LitematicaPaste / Litematic-Transmit*）
+// 交给 handleClientPasteRequest，只受理 Task=LitematicaPaste（Litematic-Transmit* 忽略，见 §3）
 ```
 
 ---
@@ -260,7 +263,7 @@ class AreaSelection {
 | 组件 | 行数 | NMS 依赖 | 迁移方式 |
 |---|---|---|---|
 | `LitematicaBitArray` | 113 | ✅ 无 | **照抄** |
-| `SchematicBuffer` / `Manager` | 154+143 | ✅ 无 | **照抄** |
+| `SchematicBuffer` / `Manager` | 154+143 | ✅ 无 | ⛔ **已删除**（2026-09-22，C2S 上传路径穿越，见 §3） |
 | `Box` / `AreaSelection` | ~700 | 值类型 | **照抄**（上游 BoxSliced/SelectionManager/SelectionMode/AreaSelectionSimple 零引用死代码已删） |
 | `SchematicMetadata` / `SchematicSchema` | ~380 | 值类型 | **照抄** |
 | `LitematicaBlockStateContainer` | 195 | `RegistryAccess`（解析 palette） | 照抄 + registry 改参数传入 |
@@ -276,6 +279,4 @@ class AreaSelection {
 ## 8. 与网络层的衔接（移植注意）
 
 - 投影传输走 `servux:litematics` 通道（[03](03-dataproviders-detail.md) §Litematics）。
-- 大上传 = 客户端 16KiB 切片（SchematicBuffer 约定）→ 我方 PacketSplitter 重组（[02](02-network-protocol.md) §5）；S2C 发送侧死链已删（见 §3 注记），26.1 线我方仅重组不切片。
-- 每个 16KiB slice 远小于客户端 32767 解码上限与 Bukkit 1MiB Messenger 上限，**单 slice 不会触发 PacketSplitter 二次分包**，反而简化——但仍保留 PacketSplitter 作为保险（应对极端情况）。
-- session key（`SliceKey`）需在插件侧维护 `Map<UUID, Long>` 映射，与原版 `SchematicBufferManager.playerMap` 一致。
+- 粘贴大包（`LitematicaPaste`）→ 我方 PacketSplitter 重组（[02](02-network-protocol.md) §5）；文件传输两个方向均已删除（见 §3），不再有 16KiB 切片与 `SliceKey` 会话。

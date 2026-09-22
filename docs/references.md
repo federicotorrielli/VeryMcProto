@@ -85,6 +85,9 @@
 | Servux CurseForge | https://www.curseforge.com/minecraft/mc-mods/servux |
 | Servux 源码（maruohon） | https://github.com/maruohon/servux |
 | Servux 源码（sakura-ryoko，LTS 维护） | https://github.com/sakura-ryoko/servux |
+| Servux 安全公告 GHSA-4x67-52jx-vr7m（服务端路径穿越，C2S 上传删除依据，见 [09](09-DELIVERY.md) §26.2.7） | https://github.com/sakura-ryoko/servux/security/advisories/GHSA-4x67-52jx-vr7m |
+| Litematica 安全公告 GHSA-mqj4-vj3c-mmwx（客户端同类问题） | https://github.com/sakura-ryoko/litematica/security/advisories/GHSA-mqj4-vj3c-mmwx |
+| litematica-rce-scanner（Fallen-Breath） | https://github.com/Fallen-Breath/litematica-rce-scanner |
 | 作者 masa | https://twitter.com/maruohon |
 | masa 客户端 Mod（MiniHUD/Litematica/Tweakeroo） | https://masa.dy.fi/mcmods/client_mods/ |
 

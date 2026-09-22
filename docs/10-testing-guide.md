@@ -132,8 +132,8 @@ masa 客户端是 **C2S 主动拉取（pull）模式**，不是服务端推送�
    服务端死信链（`/servux litematic transmit` + `sendTransmitFile`）已物理删除，恢复走 git revert。
 4. **投影粘贴**（C2S 上传投影让服务端放置）：`LitematicaPaste` 批量路由。**✅ 已实现**（客户端上传 → 重组 →
    `LitematicsDataProvider.handleClientPasteRequest` 加载 `SchematicPlacement` → 创建 `PasteTask` 登记调度器
-   分 tick 写世界（type 16 进度/完成帧）；需创造模式 + paste 权限。Transmit 四阶段上传分流对 stock 26.1
-   客户端同样不可达——客户端 `sliceForServux` 调用点整段注释，我方接收路由属协议面超集保留）
+   分 tick 写世界（type 16 进度/完成帧）；需创造模式 + paste 权限。Transmit 四阶段上传对 stock 26.1
+   客户端同样不可达——客户端 `sliceForServux` 调用点整段注释；我方接收路由已于 2026-09-22 删除，见 [05](05-schematic-system.md) §3）
 
 > 我们的插件 `LitematicsDataProvider.onBulkEntityRequest` 在响应批量请求时会向玩家**聊天框**发送
 > `Litematics bulk reply: <世界> <区块> TE=<方块实体数> E=<实体数> (<耗时>ms)`——**这是最直观的验证信号**。

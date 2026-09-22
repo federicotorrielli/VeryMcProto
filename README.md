@@ -49,7 +49,7 @@ This project uses **paperweight `userdev`** to reference fully-deobfuscated Moja
 | **JEI** | **JEI** (mezz/JustEnoughItems 26.2) | **Full server protocol**: recipe sync + cheat + recipe transfer (`fabric:recipe_sync` / `neoforge:recipe_content` + 10 `jei:*` channels) | ✅ Full |
 | **Syncmatica** | **endte syncmatica** | **Bidirectional, stateful, multi-player shared** schematic repository (`syncmatica:main` + 18 PacketTypes + Exchange sessions) | ✅ Full |
 
-**Servux** delivers world metadata / spawn / weather / TPS / MobCap, structure bounding boxes, entity & block-entity NBT queries, and Litematica schematic paste (C2S upload + server-side paste). EasyPlace (Tweakeroo precise placement) is served via PacketEvents. The S2C file-transmit path was removed — the stock 26.x clients have no receiver for it.
+**Servux** delivers world metadata / spawn / weather / TPS / MobCap, structure bounding boxes, entity & block-entity NBT queries, and Litematica schematic paste (C2S upload + server-side paste). EasyPlace (Tweakeroo precise placement) is served via PacketEvents. Both file-transmit paths are removed: S2C because the stock 26.x clients have no receiver for it, and C2S (`Litematic-Transmit*`) because its client-supplied file name allowed path traversal (the same flaw as the upstream Servux advisory GHSA-4x67-52jx-vr7m).
 
 **JEI**: recipe sync (loader-level channels, join-time packet ordering via `RecipeSyncJoinOrderer`), the `jei:*` cheat/transfer channels with a server-side permission model, and the line-by-line ported `BasicRecipeTransferHandlerServer`.
 

@@ -58,6 +58,7 @@
 **当前状态**（2026-09-22，以上游版本清单为准）：
 - 上游最新 release **26.3**（2026-09-15）；本开发线目标 **26.2**。
 - **`dev → main` 承载 26.2 线（26.2）**：26.2 迁移已完成（dev bundle `26.2.build.127-stable`、3 类 NMS 改名、协议面零变化、Purpur 纳入支持平台），`./gradlew build` 19 个测试类 / 113 个单测全绿，Paper 26.2 与 Purpur 26.2 实机起服 + 无头协议客户端握手验证通过（见 docs/09 §26.2）。
+- **安全修复（2026-09-22）**：删除 C2S `Litematic-Transmit*` 文件上传接收路径（路径穿越 = 服务端任意文件写入，见 §6 与 docs/09 §26.2.7）。
 - **26.1.2 是旧版本**：`ver/26.1.2` + `ver/26.1.2-dev` 维护对已从 `main`（tag `v26.1.2-b4`）冻结切出。
 - **1.21.11 是旧版本**：`ver/1.21.11` + `ver/1.21.11-dev` 维护对已从 `main`（tag `v1.21.11-b1`）冻结切出。
 - 适配 26.3 属后续工作（冻结 ver/26.2 对 → dev 升 mcVersion + bundle → NMS/协议漂移核对，见「升级 Minecraft 版本」）。
@@ -141,7 +142,7 @@ gradle.properties（mcVersion=26.2 · buildNumber=1）            ← 唯一改�
 
 | mod | 包结构 | 装配方式 |
 |---|---|---|
-| **servux** | `app/ServuxModule`、`command/`、`dataproviders/`（6 Provider）、`network/`（5 Handler+Packet）、`easyplace/`、`loggers/`、`schematic/`（container/selection/placement/transmit）、`util/` | `ServuxModule.onRegister(DataProviderManager)` 注册 6 Provider + 反射加载 EasyPlace |
+| **servux** | `app/ServuxModule`、`command/`、`dataproviders/`（6 Provider）、`network/`（5 Handler+Packet）、`easyplace/`、`loggers/`、`schematic/`（container/selection/placement）、`util/` | `ServuxModule.onRegister(DataProviderManager)` 注册 6 Provider + 反射加载 EasyPlace |
 | **jei** | `app/JeiModule`、`JeiReference`、`network/`（JeiServerPlayHandler + JeiPacketSender + RecipeSyncJoinOrderer（fabric 腿进服时序整形——netty 出站扣住 UpdateRecipesPacket、等 play register 证据后放行，复刻上游 PlayerListMixin 时序，见 docs/30 §5.2）+ `payload/` 9 文件 = 8 wire 包类 + 1 抽象基类、内含 `legacy/` 子目录 2——wire 口径 10 包）、`transfer/`（TransferOperation + BasicRecipeTransferHandlerServer）、`cheat/`（Cheats + GiveMode）、`recipesync/`（Fabric/Neoforge 双 payload + RecipeSyncService）、`config/JeiConfiguration`、`command/JeiCommand` | `JeiModule.enable(plugin)`（**自管**——仿 syncmatica：ChannelManager 注册 8 条 jei:* C2S + Messenger 出站声明配方通道 + RegisterChannel/Join/AsyncConfigure 监听；onDisable 调 `JeiModule.disable()`） |
 | **syncmatica** | `app/SyncmaticaModule`、`SyncmaticaContext`、`communication/`（+`exchange/`）、`data/`（+`litematica/`）、`extended_core/`、`network/`、`service/`、`util/` | `SyncmaticaModule.enable(plugin)`（**不走 DataProviderManager**——Exchange 会话模型，自管通道注册 + 玩家监听） |
 
@@ -253,15 +254,16 @@ Servux 共 **26 个 Mixin + 2 个 AccessWidener 字段**；Syncmatica 共 **5 �
 
 - 各 Provider 内部权限节点保持原版命名（如 `servux.provider.hud_data` / `.weather` / `.seed` / `.logger` / `.paste`）。
 
-### 6. 投影粘贴 —— 已实现；S2C 文件投递 —— 已移除（Servux schematic 子系统）
+### 6. 投影粘贴 —— 已实现；文件传输（S2C 投递 / C2S 上传）—— 已移除（Servux schematic 子系统）
 
 Litematica 投影子系统（`mod/servux/schematic/`，约 8000 行）已移植完成，投影粘贴实测通过：
 
-- **粘贴**（C2S，2026-09-08 任务化——上游 TaskPasteSchematicPerChunkDirect 形态，见 docs/09 §26.1.6）：客户端上传 `.litematic` → `ServuxLitematicaHandler` 经 `PacketSplitter.receive` 重组 → `handleBulkData` 分流（`LitematicaPaste` 走 `LitematicsDataProvider.handleClientPasteRequest`；`Litematic-Transmit*` 走 `LitematicaSchematic.receiveFileTransmit` 落盘 + 粘贴）→ 创建 `PasteTask` 登记 `TaskScheduler` 分 tick 执行 → 逐 chunk `SchematicPlacingUtils.placeToWorldWithinChunk`（真实 `setBlock` + 方块实体 + 实体放置，含 ReplaceMode / PasteLayerBehavior / LayerRange / Interval / 三忽略布尔；实体位置修复族——Pos 全实体重写目标坐标 / 悬挂类 TileX/Y/Z+block_pos / leash+home_pos 偏移 / Display|Leashable 补 tick，逐字对齐上游 SchematicPlacingUtils:446-513+:562-565；vanillaTickTime+60ms 动态预算 + type 16 进度/完成帧，完成帧清除客户端 InfoHud renderer）。需创造模式 + paste 权限。
-- **文件投递**（S2C，⛔ **已移除 2026-09**）：26.1 stock 客户端 `handleBulkData` 的 Transmit 分流整块注释（无接收端，投递帧被静默丢弃），上游 `sendTransmitFile` 亦 `@Deprecated(forRemoval)` 零调用点——死信链（`/servux litematic transmit` 命令 + `sendTransmitFile` + 文件字节级 16MB 门禁）已物理删除，恢复走 git revert。C2S 侧 `Litematic-Transmit*` 接收路由为我方超集保留（客户端上传触发点同被上游注释，`LitematicsDataProvider:479-484` 声明）。
+- **粘贴**（C2S，2026-09-08 任务化——上游 TaskPasteSchematicPerChunkDirect 形态，见 docs/09 §26.1.6）：客户端上传 `.litematic` → `ServuxLitematicaHandler` 经 `PacketSplitter.receive` 重组 → `handleBulkData` 交给 `LitematicsDataProvider.handleClientPasteRequest`（只受理 `Task=LitematicaPaste`；`Litematic-Transmit*` 忽略，见下条）→ 创建 `PasteTask` 登记 `TaskScheduler` 分 tick 执行 → 逐 chunk `SchematicPlacingUtils.placeToWorldWithinChunk`（真实 `setBlock` + 方块实体 + 实体放置，含 ReplaceMode / PasteLayerBehavior / LayerRange / Interval / 三忽略布尔；实体位置修复族——Pos 全实体重写目标坐标 / 悬挂类 TileX/Y/Z+block_pos / leash+home_pos 偏移 / Display|Leashable 补 tick，逐字对齐上游 SchematicPlacingUtils:446-513+:562-565；vanillaTickTime+60ms 动态预算 + type 16 进度/完成帧，完成帧清除客户端 InfoHud renderer）。需创造模式 + paste 权限。
+- **文件投递**（S2C，⛔ **已移除 2026-09**）：26.1 stock 客户端 `handleBulkData` 的 Transmit 分流整块注释（无接收端，投递帧被静默丢弃），上游 `sendTransmitFile` 亦 `@Deprecated(forRemoval)` 零调用点——死信链（`/servux litematic transmit` 命令 + `sendTransmitFile` + 文件字节级 16MB 门禁）已物理删除，恢复走 git revert。C2S 侧见下条。
+- **文件上传**（C2S `Litematic-Transmit*` 接收，⛔ **已删除 2026-09-22，禁止恢复**）：旧路由用客户端提供的 `FileName` 直接拼 `schematics/` 下的落盘路径（无规范化、无目录校验），`../` 可写出任意文件——服务端任意文件写入，可在 `plugins/` 放 jar 于下次启动执行（同上游 Servux GHSA-4x67-52jx-vr7m）。上游修复为随机 UUID 文件名并停用接收，LTS/26.2 `handleBulkData` 不再分流 Transmit*，stock 客户端上传调用点亦注释。我方对齐：`receiveFileTransmit` / `SchematicBuffer` / `SchematicBufferManager` / `handleClientPasteRequestPair` 物理删除（详见 docs/05 §3、docs/09 §26.2.7）。
 - 技术细节见 [`docs/05-schematic-system.md`](docs/05-schematic-system.md) 与 [`docs/09-DELIVERY.md`](docs/09-DELIVERY.md) §26.1.5/§26.1.6（历史移植蓝图 docs/06、08、11 与 docs/research/ 迁移笔记已于 2026-09 删除，见 git 历史）。
 
-**移植方法**：照抄原版纯算法（BitArray/Palette/Container/几何/transmit）+ NMS 直连（`BlockState`/`CompoundTag`/`NbtIo`/`ServerLevel`）；仅 3 类强制降级——`SchematicConversionMaps`（DataFixer，`readFromNBT(enableFixers=false)` 守卫下零影响）、`IMixinWorldTickScheduler`（保存投影读 tick，粘贴不需要）、`WorldUtils`（Mixin → no-op，靠 `setBlock` 的 flags 控制邻居更新）。`LitematicaSchematic` 因 `selection↔placement↔schematic↔PositionUtils` 四元循环依赖，用**桩版**（移除引用未移植类的方法 + 准确注释）分阶段引入、逐步回填。
+**移植方法**：照抄原版纯算法（BitArray/Palette/Container/几何）+ NMS 直连（`BlockState`/`CompoundTag`/`NbtIo`/`ServerLevel`）；仅 3 类强制降级——`SchematicConversionMaps`（DataFixer，`readFromNBT(enableFixers=false)` 守卫下零影响）、`IMixinWorldTickScheduler`（保存投影读 tick，粘贴不需要）、`WorldUtils`（Mixin → no-op，靠 `setBlock` 的 flags 控制邻居更新）。`LitematicaSchematic` 因 `selection↔placement↔schematic↔PositionUtils` 四元循环依赖，用**桩版**（移除引用未移植类的方法 + 准确注释）分阶段引入、逐步回填。
 
 **实战教训（维护必读）**：
 

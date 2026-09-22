@@ -53,7 +53,7 @@
 | 02 | [network-protocol.md](02-network-protocol.md) ⭐ | **网络层核心**：原版 `CustomPacketPayload` 模型、`Payload` record、`StreamCodec`、`PacketSplitter` 分片、5 条通道总表、字节布局、收发完整流程、失败重试 | 协议层 |
 | 03 | [dataproviders-detail.md](03-dataproviders-detail.md) | 5 个 Provider 的协议数据内容（NBT 字段）+ 数据采集实现 + `loggers`（TPS/MobCap）+ 设置语义 | 数据采集 |
 | 04 | [mixin-analysis.md](04-mixin-analysis.md) | 26 Mixin + 2 AccessWidener **逐项**清单：目标类、注入手法、归属功能、迁移分类、Paper 去向 | Mixin |
-| 05 | [schematic-system.md](05-schematic-system.md) ⭐ | Litematica 投影系统：BitArray/Palette/Container 压缩、`SchematicBuffer` 分片传输、四阶段传输协议、几何 `Box`/`AreaSelection`、NBT 序列化、纯算法可移植性 | 大模块 |
+| 05 | [schematic-system.md](05-schematic-system.md) ⭐ | Litematica 投影系统：BitArray/Palette/Container 压缩、四阶段传输协议（文件传输两个方向均已删除，C2S 上传因路径穿越）、几何 `Box`/`AreaSelection`、NBT 序列化、纯算法可移植性 | 大模块 |
 | 07 | [migration-architecture.md](07-migration-architecture.md) ⭐ | **Fabric → Paper 架构对照与降级矩阵**：目标架构、网络层迁移（plugin messaging + NMS）、数据采集迁移、Mixin 降级矩阵、构建配置、逐域对照（原 06 并入 §7） | 方案设计 |
 | 09 | [DELIVERY.md](09-DELIVERY.md) ⭐ | **投递/字节限制专题 + 逐通道差异/降级 + 26.1 迁移实录（§26.1 权威）+ 26.2 迁移实录（§26.2，含 Purpur）**：客户端 32767 上限实证、同通道 C2S 证明兜底裁决、NMS 漂移清单 | 投递/实录 |
 | 10 | [testing-guide.md](10-testing-guide.md) | **客户端兼容测试**：5 通道↔3 mod 映射、C2S 拉取模型、Litematica / Tweakeroo 测试步骤、排错流程、降级清单 | 实测验证 |

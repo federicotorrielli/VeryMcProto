@@ -51,7 +51,7 @@
 /servux litematic list                          列出 schematics/ 下的 .litematic 文件
 ```
 
-> S2C 文件投递（transmit）已于 2026-09 **物理删除**：26.1 stock 客户端 `handleBulkData` 的 Transmit 分流整块注释（无接收端，帧被静默丢弃），上游 `sendTransmitFile` 亦 `@Deprecated(forRemoval)` 零调用点（详见 [`09`](09-DELIVERY.md) §5.5）。文件位于 `plugins/VeryMcProto/schematics/`。
+> S2C 文件投递（transmit）已于 2026-09 **物理删除**：26.1 stock 客户端 `handleBulkData` 的 Transmit 分流整块注释（无接收端，帧被静默丢弃），上游 `sendTransmitFile` 亦 `@Deprecated(forRemoval)` 零调用点（详见 [`09`](09-DELIVERY.md) §5.5）。文件位于 `plugins/VeryMcProto/schematics/`。C2S 文件上传（`Litematic-Transmit*`）亦于 2026-09-22 删除（路径穿越，见 [`05`](05-schematic-system.md) §3），该目录不再由客户端写入。
 
 ### 1.4 `/syncmatica`
 
@@ -313,8 +313,8 @@ plugins/VeryMcProto/
 ├── placements.json             Syncmatica placement 元数据持久化（+ .bak / .new 原子写）
 ├── syncmatics/                 Syncmatica .litematic 中央仓库（上传 / 下载 / 共享）
 │   └── <hash-uuid>.litematic   文件名 = hash UUID（/syncmatica load 按它识别文件）
-└── schematics/                 Servux 投影上传（粘贴）目录
-    └── *.litematic             由 receiveFileTransmit 写入（客户端上传）；/servux litematic list 列出
+└── schematics/                 Servux 投影目录（/servux litematic list）
+    └── *.litematic             管理员手工放入；客户端上传写入路径已于 2026-09-22 删除
 ```
 
 > `schematics/` 与 `syncmatics/` 首次访问时自动创建。停服（`onDisable`）时 `placements.json` 由 `SyncmaticManager` 原子保存（backup → current ← incoming）；启动时读取，损坏条目逐条 try/catch 跳过并修正重写。

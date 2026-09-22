@@ -18,9 +18,7 @@ import verymc.top.veryMcProto.framework.network.IServerPayloadData;
 import verymc.top.veryMcProto.framework.network.PacketSplitter;
 import verymc.top.veryMcProto.mod.servux.ServuxReference;
 import verymc.top.veryMcProto.mod.servux.dataproviders.LitematicsDataProvider;
-import verymc.top.veryMcProto.mod.servux.schematic.LitematicaSchematic;
 import verymc.top.veryMcProto.mod.servux.util.nbt.DataTagIo;
-import org.apache.commons.lang3.tuple.Pair;
 
 /**
  * Litematics 通道收发 Handler（mod 层）。移植自原版 {@code ServuxLitematicaHandler}（去 Fabric + networkHandler 形参）。
@@ -29,8 +27,8 @@ import org.apache.commons.lang3.tuple.Pair;
  * → 分发到 {@link LitematicsDataProvider}；发 S2C 响应（plugin messaging，大包走 PacketSplitter）。
  *
  * <p><b>投影上传 / 粘贴</b>：客户端上传的投影 NBT（{@code PACKET_C2S_NBT_RESPONSE_DATA} 分片）走 PacketSplitter.receive 重组，
- * 组装完成后由 {@link #handleBulkData} 分流——Transmit* 走 LitematicaSchematic.receiveFileTransmit 落盘 + 粘贴，
- * 普通 LitematicaPaste 走 LitematicsDataProvider.handleClientPasteRequest 任务化受理（PasteTask 分 tick 粘贴）。
+ * 组装完成后由 {@link #handleBulkData} 交给 LitematicsDataProvider.handleClientPasteRequest 任务化受理（PasteTask 分 tick 粘贴）。
+ * Litematic-Transmit* 文件上传不再受理（2026-09-22 删除，见 handleBulkData）。
  */
 public class ServuxLitematicaHandler implements IPluginServerPlayHandler
 {
@@ -209,30 +207,17 @@ public class ServuxLitematicaHandler implements IPluginServerPlayHandler
     }
 
     /**
-     * 客户端上传的投影 NBT 重组完成后的分流（26.1：无 transactionId，按 "Task" 字符串路由）。
+     * 客户端上传的投影 NBT 重组完成后的受理（26.1：无 transactionId）。对齐上游 LTS/26.2 handleBulkData：
+     * 一律交给 LitematicsDataProvider.handleClientPasteRequest，只受理 Task=LitematicaPaste
+     * （加载 + PasteTask 任务化分 tick 粘贴），其余 Task 在权限与创造门之后忽略。
      *
-     * <p>TransmitStart/Data/End/Cancel 走 LitematicaSchematic.receiveFileTransmit（落盘到 schematics/ + 粘贴）；
-     * 普通 LitematicaPaste 走 LitematicsDataProvider.handleClientPasteRequest（加载 + PasteTask 任务化分 tick 粘贴）。
+     * <p>Litematic-TransmitStart/Data/End/Cancel 文件上传于 2026-09-22 删除：旧路径用客户端提供的 FileName
+     * 直接拼 schematics/ 下的落盘路径，{@code ../} 可写出任意文件（服务端任意文件写入，同上游
+     * GHSA-4x67-52jx-vr7m）。上游同样停用该路径，stock 客户端的上传调用点亦已注释，勿恢复。
      */
     private void handleBulkData(ServerPlayer player, CompoundTag nbt)
     {
-        String task = nbt != null ? nbt.getStringOr("Task", "LitematicaPaste") : "LitematicaPaste";
-
-        switch (task)
-        {
-            // File-Transmit support（客户端上传投影文件）
-            case "Litematic-TransmitStart", "Litematic-TransmitCancel", "Litematic-TransmitData", "Litematic-TransmitEnd" ->
-            {
-                Pair<LitematicaSchematic, CompoundTag> schemPair = LitematicaSchematic.receiveFileTransmit(nbt, player);
-
-                if (schemPair != null && schemPair.getLeft().getFile() != null)
-                {
-                    ServuxDebug.log(ServuxDebug.Cat.PACKET, "handleBulkData(): 收到 litematic " + schemPair.getLeft().getFile().toAbsolutePath().toString() + " from " + player.getName().getString());
-                    LitematicsDataProvider.INSTANCE.handleClientPasteRequestPair(player, schemPair);
-                }
-            }
-            default -> LitematicsDataProvider.INSTANCE.handleClientPasteRequest(player, nbt);
-        }
+        LitematicsDataProvider.INSTANCE.handleClientPasteRequest(player, nbt);
     }
 
     @Override

@@ -122,9 +122,10 @@ verymc.top.veryMcProto/
 
 ### 5.5 Litematics（servux:litematics，协议版本 2）—— ✅ 全功能（含投影粘贴；S2C 投递已移除）
 - **元数据握手 / 方块实体 NBT 查询 / 实体 NBT 查询 / 批量实体查询（onBulkEntityRequest）**：✅ 实现（复用 Entities 的 `NbtView` + `be.saveWithFullMetadata` / `entity.saveWithoutId` + 玩家背包/末影箱权限过滤；批量查询拼 ListTag 走 PacketSplitter 分包）。
-- **协议帧（toPacket/fromPacket）**：✅ 照抄原版（四阶段 TransmitStart/Data/End/Cancel 帧定义保留作 C2S 接收路由 + SliceKey + CHANNEL_ID=servux:litematics + 协议版本 2）。
-- **投影粘贴（C2S 上传 .litematic，任务化）**：✅ **已实现**（schematic 子系统 `mod/servux/schematic/` 全套移植，详见 [05](05-schematic-system.md)）。客户端上传分片经 `ServuxLitematicaHandler` 重组 → `handleBulkData` 分流：`Litematic-Transmit*` 走 `LitematicaSchematic.receiveFileTransmit` 落盘到 `schematics/` + 粘贴（**该分流对 stock 26.1 客户端不可达**——客户端 `sliceForServux` 调用点整段注释，我方接收路由属协议面超集保留）；活主路 `LitematicaPaste` 走 `LitematicsDataProvider.handleClientPasteRequest` 加载 `SchematicPlacement` 后创建 `PasteTask`（上游 TaskPasteSchematicPerChunkDirect 形态）登记 TaskScheduler 分 tick 粘贴（含 ReplaceMode / PasteLayerBehavior / LayerRange / Interval / 三个忽略布尔，type 16 进度/完成帧随任务下发，需创造模式 + paste 权限）——同步 `pasteTo` 直放已随上游注释停用删除（2026-09-08，见 §26.1.6）。
+- **协议帧（toPacket/fromPacket）**：✅ 照抄原版（CHANNEL_ID=servux:litematics + 协议版本 2；四阶段 TransmitStart/Data/End/Cancel 帧与 SliceKey 仅作上游协议记录，C2S 接收 2026-09-22 删除，见下）。
+- **投影粘贴（C2S 上传 .litematic，任务化）**：✅ **已实现**（schematic 子系统 `mod/servux/schematic/` 全套移植，详见 [05](05-schematic-system.md)）。客户端上传分片经 `ServuxLitematicaHandler` 重组 → `handleBulkData` 交给 `LitematicsDataProvider.handleClientPasteRequest`，只受理 `LitematicaPaste`：加载 `SchematicPlacement` 后创建 `PasteTask`（上游 TaskPasteSchematicPerChunkDirect 形态）登记 TaskScheduler 分 tick 粘贴（含 ReplaceMode / PasteLayerBehavior / LayerRange / Interval / 三个忽略布尔，type 16 进度/完成帧随任务下发，需创造模式 + paste 权限）——同步 `pasteTo` 直放已随上游注释停用删除（2026-09-08，见 §26.1.6）。
 - **S2C 文件投递命令**：⛔ **已移除（2026-09）**——26.1 stock 客户端 `handleBulkData` 的 Transmit 分流整块注释（无接收端，帧被静默丢弃），上游 `sendTransmitFile` 亦 `@Deprecated(forRemoval)` 零调用点。死信链（`/servux litematic transmit` 命令 + `sendTransmitFile` + 文件字节级 16MB 门禁）已物理删除，恢复走 git revert。
+- **C2S 文件上传（`Litematic-Transmit*`）**：⛔ **已删除（2026-09-22）**——旧接收路径用客户端提供的 `FileName` 拼落盘路径，未规范化、未校验目录，`../` 可写出 `schematics/` 之外的任意文件（服务端任意文件写入，同上游 Servux GHSA-4x67-52jx-vr7m）。对齐上游 LTS/26.2：`handleBulkData` 不再分流 Transmit*，`receiveFileTransmit` / `SchematicBuffer` / `SchematicBufferManager` / `handleClientPasteRequestPair` 物理删除。stock 26.1/26.2 客户端的上传调用点本就注释，正常客户端不受影响；详见 §26.2.7。
 - **降级点**（schematic 边缘能力，不影响粘贴主链路）：从世界选区创建/采集投影（保存侧）、Sponge/Vanilla structure 格式导入、DataFixer 旧版转换——servux 服务端只消费现成 .litematic，这些原版保存/转换 API 保留签名返回默认值。（逐文件迁移笔记属历史文档，已删除，见 git 历史。）
 
 ---
@@ -197,7 +198,7 @@ verymc.top.veryMcProto/
    - 幸存者：**Structures 通道包帧全程 vanilla/裸字节**（metadata writeNbt、STRUCTURE_DATA raw）——仅 START 重组整体为 DataTag。
 4. **C2S 变化**：
    - `transactionId` 前置 VarInt **整体删除**（请求直读 BlockPos / VarInt entityId / ChunkPos；收端残留吞读会把首字节吃掉 → 全部错位）。
-   - 批量重组体（投影上传）无 type VarInt 前缀，改按 NBT `"Task"` 字符串路由（`LitematicaPaste` / `Litematic-Transmit*`）。
+   - 批量重组体（投影上传）无 type VarInt 前缀，改按 NBT `"Task"` 字符串路由（`LitematicaPaste`；`Litematic-Transmit*` 自 2026-09-22 起忽略，见 §26.2.7）。
    - 新增 `UNREGISTER_REPLY`：HUD=9、Entities=7、Tweaks=7、Litematics=8——服务端 decode→unregister（我方映射为 provider.removePlayer）。
    - METADATA_REQUEST 语义变为「先 unregister 再 register」（再注册）。
 5. **枚举增删全表**：HUD +`UNREGISTER_REPLY(9)`；Entities/Tweaks 各 +(7)；Litematica +(8) +task 组 `TASK_REQUEST(14)/TASK_RESPONSE(15)/TASK_STATUS_SYNC(16)/TASK_CANCEL(17)`；**Structures 删 10/11/12**（S2C_SPAWN_METADATA / C2S_REQUEST_SPAWN_METADATA / S2C_WEATHER_DATA——spawn/weather 完全收敛到 HUD 通道，我方 HUD provider 本就承载，仅删 Structures 侧残留分支）。
@@ -316,3 +317,11 @@ Purpur 是 Paper 的下游分支：插件加载器、plugin messaging、`PlayerR
   - `fabric:recipe_sync`（1585 条配方、108225 字节）先于 `update_recipes` 到达——`RecipeSyncJoinOrderer` 时序整形在 26.2 生效；`jei:cheat_permission` 按权限应答；
   - syncmatica `register_version` 握手起点下发。
 - **用户侧最终验收**：真实 26.2 Fabric 客户端（minihud / litematica / tweakeroo / syncmatica / JEI）连服冒烟。无头客户端只覆盖握手与只读数据面；粘贴、分享、配方转移、EasyPlace 需真实客户端。
+
+### 26.2.7 安全修复：删除 C2S 文件上传（2026-09-22）
+
+- **问题**：`LitematicaSchematic.receiveFileTransmit` 从 `Litematic-TransmitStart` 的 NBT 读 `FileName`，`SchematicBuffer.getFileName()` 返回 `Path.of(name)`，`writeFile` 做 `dir.resolve(...)`——无规范化、无目录校验。写入前只有「`litematic_data` provider 启用（默认）+ 玩家已注册（任何客户端发 METADATA_REQUEST 即可）」两道门，无创造模式与权限检查。改装客户端发送含 `../` 的文件名，即可以服务端进程用户身份写出 `plugins/VeryMcProto/schematics/` 之外的任意文件，例如在 `plugins/` 放 jar 于下次启动执行。
+- **上游**：Servux GHSA-4x67-52jx-vr7m（2026-07-07，critical，"Litematic Transmit Path Traversal (Arbitrary File Write) (Server Side)"），26.2 线修复版 0.11.2。修复内容：`SchematicBuffer` 改随机 UUID 文件名；接收功能停用——LTS/26.2 `handleBulkData` 的 Transmit 分流整段注释，重组体一律交 `handleClientPasteRequest`。客户端侧同类问题为 Litematica GHSA-mqj4-vj3c-mmwx（26.2 线修复版 0.28.3）。
+- **影响范围**：26.1.2-b4 及更早的全部发布版带同一代码。Fallen-Breath/litematica-rce-scanner 按「`SchematicBuffer` 全部构造器首参为 String」判定，但只扫 `fi/dy/masa/` 包路径，识别不到本插件。
+- **修复**（对齐上游）：`ServuxLitematicaHandler.handleBulkData` 一律交 `handleClientPasteRequest`（只受理 `LitematicaPaste`）；`receiveFileTransmit` / `SchematicBuffer` / `SchematicBufferManager` / `handleClientPasteRequestPair` 与 `LitematicsDataProvider` 的传输缓冲一并物理删除，`schematic/transmit/` 包随之消失。stock 26.1 / 26.2 客户端的上传调用点本就注释，粘贴主路 `LitematicaPaste` 不变。
+- **验证**：`./gradlew build` 全绿（被删代码无单测，测试总数不变）。
